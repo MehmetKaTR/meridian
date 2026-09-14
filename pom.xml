@@ -26,6 +26,7 @@
         <module>discovery</module>
         <module>config-server</module>
         <module>api-gateway</module>
+        <module>user-kyc</module>
     </modules>
 
     <dependencyManagement>
@@ -39,5 +40,24 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- Lombok'u tum modullerde annotation processor olarak calistir (mvn Lombok'u aksi halde gormuyor) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
