@@ -1,4 +1,4 @@
-package org.mehmetkatr.meridian.user_kyc.dto;
+package org.mehmetkatr.meridian.user_kyc.dto.response;
 
 import lombok.Data;
 

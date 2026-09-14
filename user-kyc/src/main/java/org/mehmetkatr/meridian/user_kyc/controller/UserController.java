@@ -2,11 +2,10 @@ package org.mehmetkatr.meridian.user_kyc.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.mehmetkatr.meridian.user_kyc.dto.CreateUserRequest;
-import org.mehmetkatr.meridian.user_kyc.dto.UserResponse;
+import org.mehmetkatr.meridian.user_kyc.dto.request.CreateUserRequest;
+import org.mehmetkatr.meridian.user_kyc.dto.response.UserResponse;
 import org.mehmetkatr.meridian.user_kyc.service.UserService;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

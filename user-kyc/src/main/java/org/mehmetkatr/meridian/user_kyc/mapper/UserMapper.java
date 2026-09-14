@@ -1,6 +1,6 @@
 package org.mehmetkatr.meridian.user_kyc.mapper;
 
-import org.mehmetkatr.meridian.user_kyc.dto.UserResponse;
+import org.mehmetkatr.meridian.user_kyc.dto.response.UserResponse;
 import org.mehmetkatr.meridian.user_kyc.entity.User;
 import org.springframework.stereotype.Component;
 
