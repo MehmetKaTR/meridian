@@ -1,4 +1,4 @@
-package org.mehmetkatr.meridian.user_kyc.exception;
+package org.mehmetkatr.meridian.common.exception;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
