@@ -28,6 +28,7 @@
         <module>api-gateway</module>
         <module>user-kyc</module>
         <module>account</module>
+        <module>ledger</module>
     </modules>
 
     <dependencyManagement>
