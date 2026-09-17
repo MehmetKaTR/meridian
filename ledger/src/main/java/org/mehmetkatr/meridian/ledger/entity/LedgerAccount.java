@@ -2,6 +2,7 @@ package org.mehmetkatr.meridian.ledger.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.mehmetkatr.meridian.common.base.BaseEntity;
 
 @Entity
 @Table(name = "ledger_accounts")
