@@ -3,6 +3,7 @@ package org.mehmetkatr.meridian.ledger.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.mehmetkatr.meridian.common.base.BaseEntity;
+import org.mehmetkatr.meridian.ledger.dto.response.PostingResponse;
 
 import java.math.BigDecimal;
 

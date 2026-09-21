@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.mehmetkatr.meridian.ledger.dto.request.PostingRequest;
 
+import java.util.List;
+
 @Data
 public class EntryResponse {
 
@@ -16,5 +18,5 @@ public class EntryResponse {
 
     private String description;
 
-    private List<PostingResponse>
+    private List<PostingResponse> postings;
 }
