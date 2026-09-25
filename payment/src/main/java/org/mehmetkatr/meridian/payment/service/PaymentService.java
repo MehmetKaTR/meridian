@@ -30,6 +30,9 @@ public class PaymentService {
     @Transactional
     public PaymentResponse transfer(TransferRequest request) {
 
+        boolean withdrawn = false;
+        boolean deposited = false;
+
         Optional<Payment> existing = paymentRepository.findByReference(request.getReference());
         if (existing.isPresent()) {
             return toResponse(existing.get());
@@ -49,14 +52,18 @@ public class PaymentService {
         amountReq.setAmount(request.getAmount());
         amountReq.setCurrency(request.getCurrency());
 
-        accountClient.withdraw(request.getFromWalletId(), amountReq);
-
         try {
-            accountClient.deposit(request.getToWalletId(), amountReq);
+            accountClient.withdraw(request.getFromWalletId(), amountReq);   withdrawn = true;
+            accountClient.deposit(request.getToWalletId(), amountReq);      deposited = true;
             ledgerClient.createEntry(buildLedgerEntry(request));
             payment.setStatus(PaymentStatus.COMPLETED);
         } catch (Exception e) {
-            accountClient.deposit(request.getFromWalletId(), amountReq);
+            if (deposited) {
+                accountClient.withdraw(request.getToWalletId(), amountReq);
+            }
+            if (withdrawn) {
+                accountClient.deposit(request.getFromWalletId(), amountReq);
+            }
             payment.setStatus(PaymentStatus.FAILED);
         }
 
