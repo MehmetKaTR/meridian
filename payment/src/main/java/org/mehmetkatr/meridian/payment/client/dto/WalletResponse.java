@@ -1,20 +1,12 @@
-package org.mehmetkatr.meridian.account.dto.response;
+package org.mehmetkatr.meridian.payment.client.dto;
 
 import lombok.Data;
-
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 public class WalletResponse {
-
     private Long id;
-
     private Long accountId;
-
     private String currency;
-
     private BigDecimal balance;
-
-    private LocalDateTime createdAt;
 }

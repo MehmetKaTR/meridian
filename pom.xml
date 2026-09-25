@@ -29,6 +29,7 @@
         <module>user-kyc</module>
         <module>account</module>
         <module>ledger</module>
+        <module>payment</module>
     </modules>
 
     <dependencyManagement>
