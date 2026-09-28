@@ -16,6 +16,7 @@ import org.mehmetkatr.meridian.payment.dto.PaymentResponse;
 import org.mehmetkatr.meridian.payment.entity.Payment;
 import org.mehmetkatr.meridian.payment.entity.PaymentStatus;
 import org.mehmetkatr.meridian.payment.entity.PaymentType;
+import org.mehmetkatr.meridian.payment.gateway.MockBankGateway;
 import org.mehmetkatr.meridian.payment.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final AccountClient accountClient;
     private final LedgerClient ledgerClient;
-    private final MockBankClient mockBankClient;
+    private final MockBankGateway mockBankGateway;
 
     @Transactional
     public PaymentResponse p2pTransfer(P2pTransferRequest request) {
@@ -100,7 +101,7 @@ public class PaymentService {
             bankReq.setToIban(request.getToIban());
             bankReq.setAmount(request.getAmount());
             bankReq.setCurrency(request.getCurrency());
-            ExternalTransferResponse bankResp = mockBankClient.transfer(bankReq);
+            ExternalTransferResponse bankResp = mockBankGateway.sendTransfer(bankReq);
 
             if ("APPROVED".equals(bankResp.getStatus())) {
                 ledgerClient.createEntry(buildLedgerEntry(
