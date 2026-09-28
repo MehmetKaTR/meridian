@@ -8,12 +8,13 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class TransferRequest {
+public class ExternalPaymentRequest {
+
     @NotNull
     private Long fromWalletId;
 
-    @NotNull
-    private Long toWalletId;
+    @NotBlank
+    private String toIban;
 
     @NotNull
     private Long fromLedgerAccountId;

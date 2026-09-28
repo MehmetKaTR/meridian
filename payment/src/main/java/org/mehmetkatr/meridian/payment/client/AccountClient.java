@@ -1,7 +1,7 @@
 package org.mehmetkatr.meridian.payment.client;
 
-import org.mehmetkatr.meridian.payment.client.dto.AmountRequest;
-import org.mehmetkatr.meridian.payment.client.dto.WalletResponse;
+import org.mehmetkatr.meridian.payment.client.dto.request.AmountRequest;
+import org.mehmetkatr.meridian.payment.client.dto.response.WalletResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;

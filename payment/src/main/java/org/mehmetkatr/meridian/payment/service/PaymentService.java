@@ -4,11 +4,15 @@ import lombok.RequiredArgsConstructor;
 import org.mehmetkatr.meridian.common.money.Money;
 import org.mehmetkatr.meridian.payment.client.AccountClient;
 import org.mehmetkatr.meridian.payment.client.LedgerClient;
-import org.mehmetkatr.meridian.payment.client.dto.AmountRequest;
-import org.mehmetkatr.meridian.payment.client.dto.LedgerEntryRequest;
-import org.mehmetkatr.meridian.payment.client.dto.LedgerPostingRequest;
+import org.mehmetkatr.meridian.payment.client.MockBankClient;
+import org.mehmetkatr.meridian.payment.client.dto.request.AmountRequest;
+import org.mehmetkatr.meridian.payment.client.dto.request.ExternalTransferRequest;
+import org.mehmetkatr.meridian.payment.client.dto.request.LedgerEntryRequest;
+import org.mehmetkatr.meridian.payment.client.dto.request.LedgerPostingRequest;
+import org.mehmetkatr.meridian.payment.client.dto.response.ExternalTransferResponse;
+import org.mehmetkatr.meridian.payment.dto.ExternalPaymentRequest;
+import org.mehmetkatr.meridian.payment.dto.P2pTransferRequest;
 import org.mehmetkatr.meridian.payment.dto.PaymentResponse;
-import org.mehmetkatr.meridian.payment.dto.TransferRequest;
 import org.mehmetkatr.meridian.payment.entity.Payment;
 import org.mehmetkatr.meridian.payment.entity.PaymentStatus;
 import org.mehmetkatr.meridian.payment.entity.PaymentType;
@@ -16,6 +20,7 @@ import org.mehmetkatr.meridian.payment.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,13 +31,10 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final AccountClient accountClient;
     private final LedgerClient ledgerClient;
+    private final MockBankClient mockBankClient;
 
     @Transactional
-    public PaymentResponse transfer(TransferRequest request) {
-
-        boolean withdrawn = false;
-        boolean deposited = false;
-
+    public PaymentResponse p2pTransfer(P2pTransferRequest request) {
         Optional<Payment> existing = paymentRepository.findByReference(request.getReference());
         if (existing.isPresent()) {
             return toResponse(existing.get());
@@ -48,22 +50,20 @@ public class PaymentService {
                 .build();
         paymentRepository.save(payment);
 
-        AmountRequest amountReq = new AmountRequest();
-        amountReq.setAmount(request.getAmount());
-        amountReq.setCurrency(request.getCurrency());
+        AmountRequest amountReq = amountRequest(request.getAmount(), request.getCurrency());
 
+        boolean withdrawn = false;
+        boolean deposited = false;
         try {
             accountClient.withdraw(request.getFromWalletId(), amountReq);   withdrawn = true;
             accountClient.deposit(request.getToWalletId(), amountReq);      deposited = true;
-            ledgerClient.createEntry(buildLedgerEntry(request));
+            ledgerClient.createEntry(buildLedgerEntry(
+                    request.getReference(), request.getFromLedgerAccountId(), request.getToLedgerAccountId(),
+                    request.getAmount(), "P2P " + request.getFromWalletId() + " -> " + request.getToWalletId()));
             payment.setStatus(PaymentStatus.COMPLETED);
         } catch (Exception e) {
-            if (deposited) {
-                accountClient.withdraw(request.getToWalletId(), amountReq);
-            }
-            if (withdrawn) {
-                accountClient.deposit(request.getFromWalletId(), amountReq);
-            }
+            if (deposited) accountClient.withdraw(request.getToWalletId(), amountReq);
+            if (withdrawn) accountClient.deposit(request.getFromWalletId(), amountReq);
             payment.setStatus(PaymentStatus.FAILED);
         }
 
@@ -71,20 +71,77 @@ public class PaymentService {
         return toResponse(payment);
     }
 
-    private LedgerEntryRequest buildLedgerEntry(TransferRequest request) {
+    @Transactional
+    public PaymentResponse externalTransfer(ExternalPaymentRequest request) {
+        Optional<Payment> existing = paymentRepository.findByReference(request.getReference());
+        if (existing.isPresent()) {
+            return toResponse(existing.get());
+        }
+
+        Payment payment = Payment.builder()
+                .reference(request.getReference())
+                .fromWalletId(request.getFromWalletId())
+                .toIban(request.getToIban())
+                .type(PaymentType.EXTERNAL)
+                .status(PaymentStatus.PENDING)
+                .amount(new Money(request.getAmount(), request.getCurrency()))
+                .build();
+        paymentRepository.save(payment);
+
+        AmountRequest amountReq = amountRequest(request.getAmount(), request.getCurrency());
+
+        boolean withdrawn = false;
+        try {
+            accountClient.withdraw(request.getFromWalletId(), amountReq);
+            withdrawn = true;
+
+            ExternalTransferRequest bankReq = new ExternalTransferRequest();
+            bankReq.setReference(request.getReference());
+            bankReq.setToIban(request.getToIban());
+            bankReq.setAmount(request.getAmount());
+            bankReq.setCurrency(request.getCurrency());
+            ExternalTransferResponse bankResp = mockBankClient.transfer(bankReq);
+
+            if ("APPROVED".equals(bankResp.getStatus())) {
+                ledgerClient.createEntry(buildLedgerEntry(
+                        request.getReference(), request.getFromLedgerAccountId(), request.getToLedgerAccountId(),
+                        request.getAmount(), "EXTERNAL " + request.getFromWalletId() + " -> " + request.getToIban()));
+                payment.setStatus(PaymentStatus.COMPLETED);
+            } else {
+                if (withdrawn) accountClient.deposit(request.getFromWalletId(), amountReq);
+                payment.setStatus(PaymentStatus.FAILED);
+            }
+        } catch (Exception e) {
+            if (withdrawn) accountClient.deposit(request.getFromWalletId(), amountReq);
+            payment.setStatus(PaymentStatus.FAILED);
+        }
+
+        paymentRepository.save(payment);
+        return toResponse(payment);
+    }
+
+    private AmountRequest amountRequest(BigDecimal amount, String currency) {
+        AmountRequest req = new AmountRequest();
+        req.setAmount(amount);
+        req.setCurrency(currency);
+        return req;
+    }
+
+    private LedgerEntryRequest buildLedgerEntry(String reference, Long fromLedgerAccountId,
+                                               Long toLedgerAccountId, BigDecimal amount, String description) {
         LedgerPostingRequest debit = new LedgerPostingRequest();
-        debit.setLedgerAccountId(request.getFromLedgerAccountId());
+        debit.setLedgerAccountId(fromLedgerAccountId);
         debit.setDirection("DEBIT");
-        debit.setAmount(request.getAmount());
+        debit.setAmount(amount);
 
         LedgerPostingRequest credit = new LedgerPostingRequest();
-        credit.setLedgerAccountId(request.getToLedgerAccountId());
+        credit.setLedgerAccountId(toLedgerAccountId);
         credit.setDirection("CREDIT");
-        credit.setAmount(request.getAmount());
+        credit.setAmount(amount);
 
         LedgerEntryRequest entry = new LedgerEntryRequest();
-        entry.setReference(request.getReference());
-        entry.setDescription("Payment " + request.getFromWalletId() + " -> " + request.getToWalletId());
+        entry.setReference(reference);
+        entry.setDescription(description);
         entry.setPostings(List.of(debit, credit));
         return entry;
     }
@@ -93,8 +150,10 @@ public class PaymentService {
         PaymentResponse r = new PaymentResponse();
         r.setId(payment.getId());
         r.setReference(payment.getReference());
+        r.setType(payment.getType().name());
         r.setFromWalletId(payment.getFromWalletId());
         r.setToWalletId(payment.getToWalletId());
+        r.setToIban(payment.getToIban());
         r.setAmount(payment.getAmount().getAmount());
         r.setCurrency(payment.getAmount().getCurrency());
         r.setStatus(payment.getStatus().name());

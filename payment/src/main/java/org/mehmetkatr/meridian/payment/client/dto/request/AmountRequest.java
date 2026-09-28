@@ -1,4 +1,4 @@
-package org.mehmetkatr.meridian.payment.client.dto;
+package org.mehmetkatr.meridian.payment.client.dto.request;
 
 import lombok.Data;
 import java.math.BigDecimal;

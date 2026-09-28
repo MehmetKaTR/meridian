@@ -1,17 +1,15 @@
-package org.mehmetkatr.meridian.payment.dto;
+package org.mehmetkatr.meridian.payment.client.dto.response;
 
 import lombok.Data;
+
 import java.math.BigDecimal;
 
 @Data
-public class PaymentResponse {
+public class ExternalTransferResponse {
     private Long id;
     private String reference;
-    private String type;
-    private Long fromWalletId;
-    private Long toWalletId;
+    private String status;
     private String toIban;
     private BigDecimal amount;
     private String currency;
-    private String status;
 }

@@ -30,6 +30,7 @@
         <module>account</module>
         <module>ledger</module>
         <module>payment</module>
+        <module>mock-bank</module>
     </modules>
 
     <dependencyManagement>
