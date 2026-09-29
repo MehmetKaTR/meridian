@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.mehmetkatr.meridian.common.money.Money;
 import org.mehmetkatr.meridian.payment.client.AccountClient;
 import org.mehmetkatr.meridian.payment.client.LedgerClient;
-import org.mehmetkatr.meridian.payment.client.MockBankClient;
 import org.mehmetkatr.meridian.payment.client.dto.request.AmountRequest;
 import org.mehmetkatr.meridian.payment.client.dto.request.ExternalTransferRequest;
 import org.mehmetkatr.meridian.payment.client.dto.request.LedgerEntryRequest;
@@ -13,13 +12,13 @@ import org.mehmetkatr.meridian.payment.client.dto.response.ExternalTransferRespo
 import org.mehmetkatr.meridian.payment.dto.ExternalPaymentRequest;
 import org.mehmetkatr.meridian.payment.dto.P2pTransferRequest;
 import org.mehmetkatr.meridian.payment.dto.PaymentResponse;
-import org.mehmetkatr.meridian.payment.entity.Payment;
-import org.mehmetkatr.meridian.payment.entity.PaymentStatus;
-import org.mehmetkatr.meridian.payment.entity.PaymentType;
+import org.mehmetkatr.meridian.payment.entity.*;
 import org.mehmetkatr.meridian.payment.gateway.MockBankGateway;
+import org.mehmetkatr.meridian.payment.repository.OutboxRepository;
 import org.mehmetkatr.meridian.payment.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,9 +29,12 @@ import java.util.Optional;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final OutboxRepository outboxRepository;
     private final AccountClient accountClient;
     private final LedgerClient ledgerClient;
     private final MockBankGateway mockBankGateway;
+
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public PaymentResponse p2pTransfer(P2pTransferRequest request) {
@@ -62,6 +64,7 @@ public class PaymentService {
                     request.getReference(), request.getFromLedgerAccountId(), request.getToLedgerAccountId(),
                     request.getAmount(), "P2P " + request.getFromWalletId() + " -> " + request.getToWalletId()));
             payment.setStatus(PaymentStatus.COMPLETED);
+            saveOutboxEvent(payment);
         } catch (Exception e) {
             if (deposited) accountClient.withdraw(request.getToWalletId(), amountReq);
             if (withdrawn) accountClient.deposit(request.getFromWalletId(), amountReq);
@@ -108,6 +111,7 @@ public class PaymentService {
                         request.getReference(), request.getFromLedgerAccountId(), request.getToLedgerAccountId(),
                         request.getAmount(), "EXTERNAL " + request.getFromWalletId() + " -> " + request.getToIban()));
                 payment.setStatus(PaymentStatus.COMPLETED);
+                saveOutboxEvent(payment);
             } else {
                 if (withdrawn) accountClient.deposit(request.getFromWalletId(), amountReq);
                 payment.setStatus(PaymentStatus.FAILED);
@@ -159,5 +163,23 @@ public class PaymentService {
         r.setCurrency(payment.getAmount().getCurrency());
         r.setStatus(payment.getStatus().name());
         return r;
+    }
+
+    private void saveOutboxEvent(Payment payment) {
+        var eventData = java.util.Map.of(
+                "paymentId", payment.getId(),
+                "reference", payment.getReference(),
+                "amount", payment.getAmount().getAmount(),
+                "currency", payment.getAmount().getCurrency(),
+                "status", payment.getStatus().name(),
+                "type", payment.getType().name()
+        );
+        OutboxEvent event = OutboxEvent.builder()
+                .aggregateId(payment.getId())
+                .eventType("PaymentCompleted")
+                .payload(objectMapper.writeValueAsString(eventData))
+                .status(OutboxStatus.PENDING)
+                .build();
+        outboxRepository.save(event);
     }
 }
