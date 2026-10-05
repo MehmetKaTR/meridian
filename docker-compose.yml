@@ -8,6 +8,7 @@ services:
       - "1521:1521" #left side pc 1521, right side docker 1521
     volumes:
       - ./docker/oracle-init:/container-entrypoint-initdb.d
+      - oracle-data:/opt/oracle/oradata
     healthcheck:
       test: ["CMD", "healthcheck.sh"]
       interval: 10s
@@ -46,3 +47,6 @@ services:
 networks:
   meridian-net:
     driver: bridge
+
+volumes:
+  oracle-data:
