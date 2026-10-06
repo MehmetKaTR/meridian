@@ -7,6 +7,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,8 +24,25 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<?> handleConflict(DataIntegrityViolationException ex) {
+        Throwable cause = ex.getMostSpecificCause();
+
+        if (cause instanceof SQLException sqlEx) {
+            return switch (sqlEx.getErrorCode()) {
+                case 1 -> ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "Benzersiz alan zaten kayitli"));
+                case 2291 -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                        .body(Map.of("message", "Iliskili kayit bulunamadi (gecersiz referans)"));
+                case 2292 -> ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "Bu kayda bagli kayitlar oldugu icin silinemiyor"));
+                case 1400 -> ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "Zorunlu alan bos birakilamaz"));
+                default -> ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "Veri butunlugu ihlali"));
+            };
+        }
+
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("message", "Bu kayit zaten var (email/username benzersiz olmali)"));
+                .body(Map.of("message", "Veri butunlugu ihlali"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
